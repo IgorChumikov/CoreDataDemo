@@ -80,7 +80,8 @@ class TaskListViewController: UITableViewController {
         }
         present(alert, animated: true)
     }
-    
+
+    // MARK: - Core Data 
     private func save(_ taskName: String) {
         guard let entityDescription = NSEntityDescription.entity(forEntityName: "Task", in: context) else { return }
         guard let task = NSManagedObject(entity: entityDescription, insertInto: context) as? Task else { return }
@@ -95,6 +96,47 @@ class TaskListViewController: UITableViewController {
                 try context.save()
             } catch let error {
                 print(error)
+            }
+        }
+    }
+    
+    private func deleteTask(_ deleteTask: Task) {
+        
+        let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
+        
+        guard let tasks = try? context.fetch(fetchRequest) else { return }
+        for task in tasks {
+            if task == deleteTask {
+                context.delete(task)
+            }
+            
+            if context.hasChanges {
+                do {
+                    try context.save()
+                } catch let error {
+                    print(error)
+                }
+            }
+        }
+    }
+    
+    private func updateTask(_ updateTask: Task, _ newText: String, item: Int) {
+        
+        let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
+        
+        guard let tasks = try? context.fetch(fetchRequest) else { return }
+        for task in tasks {
+            if task == updateTask {
+                task.title = newText
+                taskList[item].title = newText
+                tableView.reloadData()
+            }
+            if context.hasChanges {
+                do {
+                    try context.save()
+                } catch let error {
+                    print(error)
+                }
             }
         }
     }
@@ -114,6 +156,45 @@ extension TaskListViewController {
         cell.contentConfiguration = content
         return cell
     }
+    
+    override func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
+        return .delete
+    }
+    
+    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        
+        if editingStyle == .delete {
+            
+            tableView.beginUpdates()
+            let task = taskList[indexPath.row]
+            deleteTask(task)
+            taskList.remove(at: indexPath.row)
+            tableView.deleteRows(at: [indexPath], with: .fade)
+            
+            tableView.endUpdates()
+        }
+    }
+    
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        
+        let task = taskList[indexPath.row]
+        let item = indexPath.row
+        
+        
+        let alert = UIAlertController(title: "Edit item", message: "Edit your item", preferredStyle: .alert)
+        alert.addTextField(configurationHandler: nil)
+        alert.textFields?.first?.text = task.title
+        
+        let saveAction = UIAlertAction(title: "Save", style: .default) { _ in
+            guard let newText = alert.textFields?.first?.text, !newText.isEmpty else { return }
+            self.updateTask(task, newText, item: item)
+        }
+        let cancelAction = UIAlertAction(title: "Cancel", style: .destructive)
+        alert.addAction(saveAction)
+        alert.addAction(cancelAction)
+
+        present(alert, animated: true)
+    }
 }
 
 // MARK: - TaskViewControllerDelegate
@@ -123,3 +204,5 @@ extension TaskListViewController: TaskViewControllerDelegate {
         tableView.reloadData()
     }
 }
+
+
